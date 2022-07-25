@@ -24,7 +24,7 @@
  */
 
 /* Set the message of the device driver */
-#define IOCTL_RESET_COUNTER _IOW(MAJOR_NUM, 1, struct myTimeStruct *)
+#define IOCTL_RESET_COUNTER _IO(MAJOR_NUM, 1)
 /* _IOW means that we are creating an ioctl command number for passing
  * information from a user process to the kernel module.
  *
@@ -38,7 +38,7 @@
  */
 
 /* Get the message of the device driver */
-#define IOCTL_GET_RESET_DATE _IOR(MAJOR_NUM, 2, int *)
+#define IOCTL_GET_RESET_DATE _IOR(MAJOR_NUM, 2, unsigned long *)
 /* This IOCTL is used for output, to get the message of the device driver.
  * However, we still need the buffer to place the message in to be input,
  * as it is allocated by the process.
