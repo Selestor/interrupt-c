@@ -15,14 +15,15 @@
 #include <sys/ioctl.h> /* ioctl */
 #include <time.h>
 
+static int *counter;
 static char reset_time[8];
 
 /* Functions for the ioctl calls */
 int ioctl_get_counter(int file_desc) {
     int ret_val;
 
-    ret_val = ioctl(file_desc, IOCTL_GET_COUNTER);
-
+    ret_val = ioctl(file_desc, IOCTL_GET_COUNTER, counter);
+    printf("Counter: %d\n", *counter);
     if (ret_val < 0) {
         printf("ioctl_get_counter failed:%d\n", ret_val);
     }
@@ -48,7 +49,7 @@ long ioctl_get_reset_date(int file_desc) {
     ret_val = ioctl(file_desc, IOCTL_GET_RESET_DATE);
 
     if (ret_val < 0) {
-        printf("ioctl_get_counter failed:%ld\n", ret_val);
+        printf("ioctl_reset_date failed:%ld\n", ret_val);
     }
 
     return ret_val;
@@ -89,7 +90,7 @@ int main(int argc, char *argv[]) {
                 if (ret_val < 0)
                     goto error;
                 else
-                    printf("Interrupt count: %d\n", ret_val);
+                    printf("Interrupt count: %d\n", *counter);
                 break;
             case 'r':
                 printf("Reset interrupt option.\n");

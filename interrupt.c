@@ -10,6 +10,7 @@
 #include <linux/kobject.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
+#include <linux/uaccess.h>
 
 #include <linux/ktime.h>
 
@@ -19,19 +20,24 @@ MODULE_DESCRIPTION("Count keyboard presses");
 
 //static struct kobject *interrupt_module;
 static unsigned int interrupt_count = 0;
-
-static long time_sec = 0;
+struct mychar_device_data {
+    int time;
+};
 
 // sysfs class structure
 static struct class *mychardev_class = NULL;
 
-static unsigned long get_current_time(void);
+//static unsigned long get_current_time(void);
 static int interupt_callback(struct notifier_block *nblock, unsigned long code, void *_param);
+static int mychardev_open(struct inode *inode, struct file *file);
+static int mychardev_release(struct inode *inode, struct file *file);
 static long interrupt_ioctl(struct file *file, unsigned int ioctl_num, unsigned long ioctl_param);
 static int mychardev_uevent(struct device *dev, struct kobj_uevent_env *env);
 
 static struct file_operations fops = {
     .owner = THIS_MODULE,
+    .open = mychardev_open,
+    .release = mychardev_release,
     .unlocked_ioctl = interrupt_ioctl,
 };
 
@@ -40,6 +46,7 @@ static struct notifier_block interupt_block = {
     .notifier_call = interupt_callback,
 };
 
+/*
 static unsigned long get_current_time() {
     unsigned long ret;
     struct timespec64 now;
@@ -47,7 +54,7 @@ static unsigned long get_current_time() {
     ktime_get_raw_ts64(&now);
     ret = now.tv_sec;
     return ret;
-}
+}*/
 
 // this is called when ioctl is called
 static long interrupt_ioctl(struct file *file, unsigned int ioctl_num, unsigned long ioctl_param) {
@@ -57,20 +64,33 @@ static long interrupt_ioctl(struct file *file, unsigned int ioctl_num, unsigned 
     /* Switch according to the ioctl called */
     switch (ioctl_num) {
         case IOCTL_GET_COUNTER: {
-            ret = interrupt_count;
+            if( copy_to_user((unsigned int __user *)ioctl_param, &interrupt_count, sizeof(unsigned int)) ) {
+                ret = -EFAULT;
+            }
             break;
         }
         case IOCTL_RESET_COUNTER: {
             interrupt_count = 0;
-            time_sec = get_current_time();
             break;
         }
         case IOCTL_GET_RESET_DATE:
-            ret = time_sec;
+            ret = 0;
             break;
         }
 
     return ret;
+}
+
+static int mychardev_open(struct inode *inode, struct file *file)
+{
+    printk("MYCHARDEV: Device open\n");
+    return 0;
+}
+
+static int mychardev_release(struct inode *inode, struct file *file)
+{
+    printk("MYCHARDEV: Device close\n");
+    return 0;
 }
 
 // called when keyboard event raises

@@ -17,7 +17,7 @@
 #define MAJOR_NUM 100
 
 /* Get the message of the device driver */
-#define IOCTL_GET_COUNTER _IOR(MAJOR_NUM, 0, int *)
+#define IOCTL_GET_COUNTER _IOR(MAJOR_NUM, 0, unsigned int *)
 /* This IOCTL is used for output, to get the message of the device driver.
  * However, we still need the buffer to place the message in to be input,
  * as it is allocated by the process.
