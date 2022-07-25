@@ -11,16 +11,21 @@
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 
+#include <linux/ktime.h>
+
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Me");
 MODULE_DESCRIPTION("Count keyboard presses");
 
 //static struct kobject *interrupt_module;
 static unsigned int interrupt_count = 0;
+
+static long time_sec = 0;
+
 // sysfs class structure
 static struct class *mychardev_class = NULL;
-static struct myTimeStruct myTime = {0, 0, 0, 0, 0, 0};
 
+static unsigned long get_current_time(void);
 static int interupt_callback(struct notifier_block *nblock, unsigned long code, void *_param);
 static long interrupt_ioctl(struct file *file, unsigned int ioctl_num, unsigned long ioctl_param);
 static int mychardev_uevent(struct device *dev, struct kobj_uevent_env *env);
@@ -35,6 +40,15 @@ static struct notifier_block interupt_block = {
     .notifier_call = interupt_callback,
 };
 
+static unsigned long get_current_time() {
+    unsigned long ret;
+    struct timespec64 now;
+
+    ktime_get_raw_ts64(&now);
+    ret = now.tv_sec;
+    return ret;
+}
+
 // this is called when ioctl is called
 static long interrupt_ioctl(struct file *file, unsigned int ioctl_num, unsigned long ioctl_param) {
     long ret = 0;
@@ -48,10 +62,11 @@ static long interrupt_ioctl(struct file *file, unsigned int ioctl_num, unsigned 
         }
         case IOCTL_RESET_COUNTER: {
             interrupt_count = 0;
+            time_sec = get_current_time();
             break;
         }
         case IOCTL_GET_RESET_DATE:
-            ret = (long)myTime;
+            ret = time_sec;
             break;
         }
 
@@ -97,9 +112,6 @@ static int __init interupt_init(void) {
     device_create(mychardev_class, NULL, device, NULL, DEVICE_FILE_NAME);
 
     pr_info("Device created on /dev/%s\n", DEVICE_FILE_NAME);
-
-    //set init date as date of 1st counter reset
-    set_Current_Date(&myTime);
 
     // register notifier_block with keyboard events
     register_keyboard_notifier(&interupt_block);

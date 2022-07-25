@@ -15,18 +15,7 @@
 #include <sys/ioctl.h> /* ioctl */
 #include <time.h>
 
-struct myTimeStruct *get_current_time(void) {
-    struct myTimeStruct myTime;
-    time_t t = time(NULL);
-    struct tm tm = *localtime(&t);
-    myTime.year = tm.tm_year + 1900;
-    myTime.month = tm.tm_mon + 1;
-    myTime.day = tm.tm_mday;
-    myTime.hour = tm.tm_hour;
-    myTime.minute = tm.tm_min;
-    myTime.second = tm.tm_sec;
-    return &myTime;
-}
+static char reset_time[8];
 
 /* Functions for the ioctl calls */
 int ioctl_get_counter(int file_desc) {
@@ -43,10 +32,8 @@ int ioctl_get_counter(int file_desc) {
 
 int ioctl_reset_counter(int file_desc) {
     int ret_val;
-    struct myTimeStruct *time;
 
-    time = get_current_time();
-    ret_val = ioctl(file_desc, IOCTL_RESET_COUNTER, time);
+    ret_val = ioctl(file_desc, IOCTL_RESET_COUNTER);
 
     if (ret_val < 0) {
         printf("ioctl_reset_counter failed:%d\n", ret_val);
@@ -55,13 +42,36 @@ int ioctl_reset_counter(int file_desc) {
     return ret_val;
 }
 
-void ioctl_get_reset_date(int file_desc, char* buff) {
-    buff = ioctl(file_desc, IOCTL_GET_RESET_DATE);
+long ioctl_get_reset_date(int file_desc) {
+    long ret_val;
+
+    ret_val = ioctl(file_desc, IOCTL_GET_RESET_DATE);
+
+    if (ret_val < 0) {
+        printf("ioctl_get_counter failed:%ld\n", ret_val);
+    }
+
+    return ret_val;
+}
+
+void seconds_to_date(int seconds) {
+    int hour, minute, second, tmp1, tmp2;
+    char str[] = "%02d:%02d:%02d";
+
+    seconds = seconds + (7 * 60 + 30) * 60;
+    second = seconds % 60;
+    tmp1 = seconds / 60;
+    minute = tmp1 % 60;
+    tmp2 = tmp1 / 60;
+    hour = (tmp2 % 24);
+
+    sprintf(reset_time, str, hour, minute, second);
 }
 
 /* Main - Call the ioctl functions */
 int main(int argc, char *argv[]) {
     int file_desc, ret_val, option;
+    long seconds;
 
     file_desc = open(DEVICE_PATH, O_RDWR);
     if (file_desc < 0) {
@@ -90,6 +100,12 @@ int main(int argc, char *argv[]) {
                 break;
             case 'd':
                 printf("Show reset date option.\n");
+                seconds = ioctl_get_reset_date(file_desc);
+                seconds_to_date(seconds);
+                if (seconds < 0)
+                    goto error;
+                else
+                    printf("Interrupt reset date: %s\n", reset_time);
                 break;
         }
     } else

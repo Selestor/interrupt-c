@@ -11,15 +11,6 @@
 
 #include <linux/ioctl.h>
 
-struct myTimeStruct {
-    int year;
-    int month;
-    int day;
-    int hour;
-    int minute;
-    int second;
-}
-
 /* The major device number. We can not rely on dynamic registration
  * any more, because ioctls need to know it.
  */
