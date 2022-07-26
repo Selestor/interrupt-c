@@ -2,7 +2,7 @@
  * chardev.h - the header file with the ioctl definitions.
  *
  * The declarations here have to be in a header file, because they need
- * to be known both to the kernel module (in chardev2.c) and the process
+ * to be known both to the kernel module (in interrupt.c) and the process
  * calling ioctl() (in userspace_ioctl.c).
  */
 
@@ -19,29 +19,14 @@
 /* Get the message of the device driver */
 #define IOCTL_GET_COUNTER _IOR(MAJOR_NUM, 0, unsigned int *)
 /* This IOCTL is used for output, to get the message of the device driver.
- * However, we still need the buffer to place the message in to be input,
- * as it is allocated by the process.
  */
 
-/* Set the message of the device driver */
+/* No data is sent or received, no need for _IOR or _IOW; use _IO*/
 #define IOCTL_RESET_COUNTER _IO(MAJOR_NUM, 1)
-/* _IOW means that we are creating an ioctl command number for passing
- * information from a user process to the kernel module.
- *
- * The first arguments, MAJOR_NUM, is the major device number we are using.
- *
- * The second argument is the number of the command (there could be several
- * with different meanings).
- *
- * The third argument is the type we want to get from the process to the
- * kernel.
- */
 
 /* Get the message of the device driver */
 #define IOCTL_GET_RESET_DATE _IOR(MAJOR_NUM, 2, unsigned long *)
 /* This IOCTL is used for output, to get the message of the device driver.
- * However, we still need the buffer to place the message in to be input,
- * as it is allocated by the process.
  */
 
 /* The name of the device file */

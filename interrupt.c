@@ -2,15 +2,9 @@
  * major device file. */
 #include "chardev.h"
 
-#include <linux/debugfs.h>
-#include <linux/init.h>
 #include <linux/input.h>
-#include <linux/kernel.h>
 #include <linux/keyboard.h>
-#include <linux/kobject.h>
 #include <linux/module.h>
-#include <linux/moduleparam.h>
-#include <linux/uaccess.h>
 
 #include <linux/ktime.h>
 
@@ -48,7 +42,7 @@ static unsigned long get_current_time() {
     unsigned long ret;
     struct timespec64 now;
 
-    ktime_get_raw_ts64(&now);
+    ktime_get_real_ts64(&now);
     ret = now.tv_sec;
     return ret;
 }

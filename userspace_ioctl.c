@@ -1,9 +1,3 @@
-/*  userspace_ioctl.c - the process to use ioctl's to control the kernel module
- *
- *  Until now we could have used cat for input and output.  But now
- *  we need to do ioctl's, which require writing our own process.
- */
-
 /* device specifics, such as ioctl numbers and the
  * major device file. */
 #include "chardev.h"
@@ -13,6 +7,7 @@
 #include <unistd.h> /* close */
 #include <stdlib.h> /* exit */
 #include <sys/ioctl.h> /* ioctl */
+
 #include <time.h>
 
 static unsigned int counter;
@@ -20,7 +15,12 @@ static unsigned int *counter_pointer = &counter;
 
 static unsigned long myTime;
 static unsigned long *myTime_pointer = &myTime;
-static char reset_time[8];
+static char reset_time[32];
+
+int ioctl_get_counter(int file_desc);
+int ioctl_reset_counter(int file_desc);
+long ioctl_get_reset_date(int file_desc);
+void seconds_to_date(unsigned long seconds);
 
 /* Functions for the ioctl calls */
 int ioctl_get_counter(int file_desc) {
@@ -58,18 +58,9 @@ long ioctl_get_reset_date(int file_desc) {
     return ret_val;
 }
 
-void seconds_to_date(int seconds) {
-    int hour, minute, second, tmp1, tmp2;
-    char str[] = "%02d:%02d:%02d";
-
-    seconds = seconds + (7 * 60 + 30) * 60;
-    second = seconds % 60;
-    tmp1 = seconds / 60;
-    minute = tmp1 % 60;
-    tmp2 = tmp1 / 60;
-    hour = (tmp2 % 24);
-
-    sprintf(reset_time, str, hour, minute, second);
+void seconds_to_date(unsigned long seconds) {
+    struct tm *tm = localtime(&seconds);
+    strftime(reset_time, sizeof(reset_time), "%Y/%m/%d/%H:%M:%S", tm);
 }
 
 /* Main - Call the ioctl functions */
