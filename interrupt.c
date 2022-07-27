@@ -3,10 +3,11 @@
 #include "chardev.h"
 
 #include <linux/input.h>
-#include <linux/keyboard.h>
+#include <linux/keyboard.h> // to be able to get interrupts from keyboard
 #include <linux/module.h>
-#include <linux/ktime.h>
-#include <asm-generic/errno-base.h>
+#include <linux/ktime.h> // to get current time in kernel
+#include <linux/kdev_t.h> // for MKDEV(major, minor)
+#include <asm-generic/errno-base.h> // for EBUSY
 
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Me");
@@ -136,9 +137,9 @@ static int __init interupt_init(void) {
 
     device = MKDEV(MAJOR_NUM, 0);
 
-    // create sysfs class
-    mychardev_class = class_create(THIS_MODULE, "class_create_device");
-    // add permissions
+    // create sysfs class; /sys/devices/virtual/interrupt_sysfs
+    mychardev_class = class_create(THIS_MODULE, "interrupt_sysfs");
+    // add permissions to read/open
     mychardev_class->dev_uevent = mychardev_uevent;
 
     // this creates device 'file' called DEVICE_FILE_NAME
