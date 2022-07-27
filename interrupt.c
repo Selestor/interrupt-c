@@ -5,14 +5,18 @@
 #include <linux/input.h>
 #include <linux/keyboard.h>
 #include <linux/module.h>
-
 #include <linux/ktime.h>
+#include <asm-generic/errno-base.h>
 
 MODULE_LICENSE("GPL v2");
 MODULE_AUTHOR("Me");
 MODULE_DESCRIPTION("Count keyboard presses");
 
-//static struct kobject *interrupt_module;
+
+// used to keep track if device is in use by .open and .release
+static unsigned int device_in_use = 0;
+
+// data
 static unsigned int interrupt_count = 0;
 static unsigned long seconds = 0;
 
@@ -78,12 +82,22 @@ static long interrupt_ioctl(struct file *file, unsigned int ioctl_num, unsigned 
 static int mychardev_open(struct inode *inode, struct file *file)
 {
     printk("MYCHARDEV: Device open\n");
+
+    // use some var to keep track if device is used in any way
+    if (device_in_use)
+        return -EBUSY;
+    device_in_use++;
+
     return 0;
 }
 
 static int mychardev_release(struct inode *inode, struct file *file)
 {
-    printk("MYCHARDEV: Device close\n");
+    pr_info("device_release(%p,%p)\n", inode, file);
+
+    // remember to release the device in the same way
+    device_in_use--;
+
     return 0;
 }
 
@@ -121,8 +135,13 @@ static int __init interupt_init(void) {
     }
 
     device = MKDEV(MAJOR_NUM, 0);
+
+    // create sysfs class
     mychardev_class = class_create(THIS_MODULE, "class_create_device");
+    // add permissions
     mychardev_class->dev_uevent = mychardev_uevent;
+
+    // this creates device 'file' called DEVICE_FILE_NAME
     device_create(mychardev_class, NULL, device, NULL, DEVICE_FILE_NAME);
 
     pr_info("Device created on /dev/%s\n", DEVICE_FILE_NAME);
