@@ -7,6 +7,7 @@
 #include <linux/module.h>
 #include <linux/ktime.h> // to get current time in kernel
 #include <linux/kdev_t.h> // for MKDEV(major, minor)
+#include <linux/err.h> // for ERR_PTR
 #include <asm-generic/errno-base.h> // for EBUSY
 
 MODULE_LICENSE("GPL v2");
@@ -29,6 +30,8 @@ static int interupt_callback(struct notifier_block *nblock, unsigned long code, 
 static int mychardev_open(struct inode *inode, struct file *file);
 static int mychardev_release(struct inode *inode, struct file *file);
 static long interrupt_ioctl(struct file *file, unsigned int ioctl_num, unsigned long ioctl_param);
+static long get_counter_ioctl(unsigned int *ptr_to_user);
+static long get_reset_date_ioctl(unsigned long *ptr_to_user);
 static int mychardev_uevent(struct device *dev, struct kobj_uevent_env *env);
 
 static struct file_operations fops = {
@@ -60,9 +63,7 @@ static long interrupt_ioctl(struct file *file, unsigned int ioctl_num, unsigned 
     /* Switch according to the ioctl called */
     switch (ioctl_num) {
         case IOCTL_GET_COUNTER: {
-            if( copy_to_user((unsigned int __user *)ioctl_param, &interrupt_count, sizeof(interrupt_count)) ) {
-                ret = -EFAULT;
-            }
+            ret = get_counter_ioctl((unsigned int *)ioctl_param);
             break;
         }
         case IOCTL_RESET_COUNTER: {
@@ -71,12 +72,24 @@ static long interrupt_ioctl(struct file *file, unsigned int ioctl_num, unsigned 
             break;
         }
         case IOCTL_GET_RESET_DATE:
-            if( copy_to_user((unsigned long __user *)ioctl_param, &seconds, sizeof(seconds)) ) {
-                ret = -EFAULT;
-            }
+            ret = get_reset_date_ioctl((unsigned long *)ioctl_param);
             break;
         }
 
+    return ret;
+}
+
+static long get_counter_ioctl(unsigned int *ptr_to_user) {
+    long ret = 0;
+    if (copy_to_user((unsigned int __user *)ptr_to_user, &interrupt_count, sizeof(interrupt_count)))
+        ret = -EFAULT;
+    return ret;
+}
+
+static long get_reset_date_ioctl(unsigned long *ptr_to_user) {
+    long ret = 0;
+    if(copy_to_user((unsigned long __user *)ptr_to_user, &seconds, sizeof(seconds)))
+        ret = -EFAULT;
     return ret;
 }
 
@@ -88,6 +101,9 @@ static int mychardev_open(struct inode *inode, struct file *file)
     if (device_in_use)
         return -EBUSY;
     device_in_use++;
+
+    // set as 1st date of interrupt
+    seconds = get_current_time();
 
     return 0;
 }
@@ -106,8 +122,8 @@ static int mychardev_release(struct inode *inode, struct file *file)
 int interupt_callback(struct notifier_block *nblock, unsigned long code, void *_param) {
     struct keyboard_notifier_param *param = _param;
 
-    if(param->down) {
-        if(param->value > KEY_RESERVED && param->value < KEY_MAX) {
+    if (param->down) {
+        if (param->value > KEY_RESERVED && param->value < KEY_MAX) {
             interrupt_count++;
             pr_info("Keyboard interupt count: %d, value: %d\n", interrupt_count, param->value);
         }
@@ -138,28 +154,39 @@ static int __init interupt_init(void) {
     device = MKDEV(MAJOR_NUM, 0);
 
     // create sysfs class; /sys/devices/virtual/interrupt_sysfs
-    mychardev_class = class_create(THIS_MODULE, "interrupt_sysfs");
+    mychardev_class = class_create(THIS_MODULE, "interrupt_sysfs"); // handle error
+    if (mychardev_class == (void *)ERR_PTR)
+        goto class_create_error;
     // add permissions to read/open
     mychardev_class->dev_uevent = mychardev_uevent;
 
     // this creates device 'file' called DEVICE_FILE_NAME
-    device_create(mychardev_class, NULL, device, NULL, DEVICE_FILE_NAME);
-
+    if (device_create(mychardev_class, NULL, device, NULL, DEVICE_FILE_NAME) == (void *)ERR_PTR)
+        goto device_create_error;
     pr_info("Device created on /dev/%s\n", DEVICE_FILE_NAME);
 
     // register notifier_block with keyboard events
     register_keyboard_notifier(&interupt_block);
     return error;
+
+device_create_error:
+    class_destroy(mychardev_class);
+class_create_error:
+    unregister_chrdev(MAJOR_NUM, DEVICE_FILE_NAME);
+
+    return error;
 }
 
 static void __exit interupt_exit(void) {
-    device_destroy(mychardev_class, MKDEV(MAJOR_NUM, 0));
-    class_destroy(mychardev_class);
-
-    /* Unregister the character device */
-    unregister_chrdev(MAJOR_NUM, DEVICE_FILE_NAME);
     // unregister keyboard notifier that tracks interrupts
     unregister_keyboard_notifier(&interupt_block);
+
+    // destroy char device
+    device_destroy(mychardev_class, MKDEV(MAJOR_NUM, 0));
+    // destroy char device class
+    class_destroy(mychardev_class);
+    /* Unregister the character device */
+    unregister_chrdev(MAJOR_NUM, DEVICE_FILE_NAME);
 }
 
 module_init(interupt_init);

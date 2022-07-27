@@ -10,23 +10,18 @@
 
 #include <time.h>
 
-static unsigned int counter;
-static unsigned int *counter_pointer = &counter;
+static char reset_date[32];
 
-static unsigned long myTime;
-static unsigned long *myTime_pointer = &myTime;
-static char reset_time[32];
-
-int ioctl_get_counter(int file_desc);
+int ioctl_get_counter(int file_desc, unsigned int *counter);
 int ioctl_reset_counter(int file_desc);
-long ioctl_get_reset_date(int file_desc);
+long ioctl_get_reset_date(int file_desc, unsigned long *timep);
 void seconds_to_date(unsigned long seconds);
 
 /* Functions for the ioctl calls */
-int ioctl_get_counter(int file_desc) {
+int ioctl_get_counter(int file_desc, unsigned int *counter) {
     int ret_val;
 
-    ret_val = ioctl(file_desc, IOCTL_GET_COUNTER, counter_pointer);
+    ret_val = ioctl(file_desc, IOCTL_GET_COUNTER, counter);
     if (ret_val < 0) {
         printf("ioctl_get_counter failed:%d\n", ret_val);
     }
@@ -46,10 +41,10 @@ int ioctl_reset_counter(int file_desc) {
     return ret_val;
 }
 
-long ioctl_get_reset_date(int file_desc) {
+long ioctl_get_reset_date(int file_desc, unsigned long *timep) {
     long ret_val;
 
-    ret_val = ioctl(file_desc, IOCTL_GET_RESET_DATE, myTime_pointer);
+    ret_val = ioctl(file_desc, IOCTL_GET_RESET_DATE, timep);
 
     if (ret_val < 0) {
         printf("ioctl_reset_date failed:%ld\n", ret_val);
@@ -60,13 +55,14 @@ long ioctl_get_reset_date(int file_desc) {
 
 void seconds_to_date(unsigned long seconds) {
     struct tm *tm = localtime(&seconds);
-    strftime(reset_time, sizeof(reset_time), "%Y/%m/%d/%H:%M:%S", tm);
+    strftime(reset_date, sizeof(reset_date), "%Y/%m/%d/%H:%M:%S", tm);
 }
 
 /* Main - Call the ioctl functions */
 int main(int argc, char *argv[]) {
     int file_desc, ret_val, option;
-    long seconds;
+    unsigned int counter = 0;
+    unsigned long time_sec = 0;
 
     file_desc = open(DEVICE_PATH, O_RDWR);
     if (file_desc < 0) {
@@ -76,11 +72,11 @@ int main(int argc, char *argv[]) {
     }
 
     option = getopt(argc, argv, "srd"); // take just one, options are mutually exclusive
-    if(option != -1){ //if there is any
-        switch(option){
+    if (option != -1) { //if there is any
+        switch(option) {
             case 's':
                 printf("Show interrupt option.\n");
-                ret_val = ioctl_get_counter(file_desc);
+                ret_val = ioctl_get_counter(file_desc, &counter);
                 if (ret_val < 0)
                     goto error;
                 else
@@ -95,12 +91,12 @@ int main(int argc, char *argv[]) {
                 break;
             case 'd':
                 printf("Show reset date option.\n");
-                ret_val = ioctl_get_reset_date(file_desc);
+                ret_val = ioctl_get_reset_date(file_desc, &time_sec);
                 if (ret_val < 0)
                     goto error;
                 else
-                    seconds_to_date(myTime);
-                    printf("Interrupt reset date: %s\n", reset_time);
+                    seconds_to_date(time_sec);
+                    printf("Interrupt reset date: %s\n", reset_date);
                 break;
         }
     } else
